@@ -97,7 +97,7 @@ the script.
 - SSH into your Ubuntu server and also make sure that you have installed qemu on your local machine
 
 - First, install QEMU (see https://wiki.qemu.org/Hosts/Linux for other options):
-	  ```bash
+	```bash
       sudo apt-get install qemu-system-x86
       # I have build qemu-7.2.0 using source code
       # Some prerequisite packets are required (details can be found https://wiki.qemu.org/Hosts/Linux here)
@@ -149,7 +149,7 @@ the script.
 
 - Next, run this command to boot the VM (I put this in a script ./images/live-server-setup.sh):
 	```bash
-	  sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
+	sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
     -machine type=pc,accel=kvm,mem-merge=off -enable-kvm \
     -cpu host -smp cpus=8 -m 16384M \
     -object memory-backend-ram,size=12288M,policy=bind,host-nodes=0,id=ram-node0,prealloc=on,prealloc-threads=8 \
@@ -179,7 +179,6 @@ the script.
 	```bash
 	sudo update-grub
 	```
-	
 - Configuring grub
 	- Edit /boot/grub/menu.lst:
 		```bash
@@ -188,9 +187,9 @@ the script.
 	- Add the following lines to the top of the file:
 		```bash
 		# Enable console output via the serial port. unit 0 is /dev/ttyS0, unit 1 is /dev/ttyS1...
-    serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-    terminal --timeout=15 serial console
-    ```
+        serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+        terminal --timeout=15 serial console
+        ```
 	- When you next reboot, the output from grub will go to the normal console unless input is received from the serial port. Whichever receives input first becomes the default console. This gives you the best of both worlds.
 	- Poweroff the VM
         ```bash
