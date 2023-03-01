@@ -131,13 +131,13 @@ the script.
 	
 	- For a permanent setup create the following file:
 		```bash
-    $ sudo vim /etc/sysctl.d/50-enable-forwarding.conf
-    
-    # local customizations
-    #
-    # enable forwarding for dual stack
-    net.ipv4.ip_forwarding=1 net.ipv6.conf.all.forwarding=1
-    ```
+        $ sudo vim /etc/sysctl.d/50-enable-forwarding.conf
+
+        # local customizations
+        #
+        # enable forwarding for dual stack
+        net.ipv4.ip_forwarding=1 net.ipv6.conf.all.forwarding=1
+        ```
   
 - Download an Ubuntu ISO file (or any other linux):
 	```bash
@@ -224,7 +224,7 @@ the script.
         ```bash
         ssh -p 8080 $user@localhost
         ```
-	- How to setup password-less login into VM from server
+	- How to setup password-less login into VM from server(https://help.ubuntu.com/community/SSH/OpenSSH/Keys)
         ```bash
         ssh-keygen -t rsa -b 4096
         ssh-copy-id -p 8080 $user@localhost
