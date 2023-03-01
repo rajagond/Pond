@@ -87,7 +87,146 @@ consumption of the workload. Based on these, ``run-cpu2017.sh`` will iterate
 over a series of predefined split-ratios and run the experiments one by one.
 The scripts writes the logs and outputs to ``rst`` folder.
 
-One could co-run profiling utilities such as ``emon`` or ``Intel Vtune``
+One could co-run profiling utilities such as emon or Intel Vtune
 together with the workload to collect architecture-level metrics for
 performance analysis. Make sure Intel Vtune is installed first before running
 the script.
+
+##### Ubuntu VM on Ubuntu Server with qemu
+
+- SSH into your Ubuntu server and also make sure that you have installed qemu on your local machine
+
+- First, install QEMU (see https://wiki.qemu.org/Hosts/Linux for other options):
+	  ```bash
+      sudo apt-get install qemu-system-x86
+      # I have build qemu-7.2.0 using source code
+      # Some prerequisite packets are required (details can be found https://wiki.qemu.org/Hosts/Linux here)
+      sudo apt-get install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build
+      sudo apt-get install libibverbs-dev libjpeg8-dev libncurses5-dev libnuma-dev libaio-dev libslirp-dev libaio1
+      # To download and build QEMU 7.2.0:
+      wget https://download.qemu.org/qemu-7.2.0.tar.xz
+      tar xvJf qemu-7.2.0.tar.xz
+      cd qemu-7.2.0
+      cd build
+      ../configure --prefix=/opt/qemu-7
+      # I want to install it under /opt/qemu-7 so it doesn’t interfere with any existing or future QEMU installation.
+      # Alternatively, don't run 'make install' and source the binaries and libraries from the build directory.
+      make -j all
+      make install
+    ```
+  
+- Configure Host Networking
+	- Confirm IP forwarding is enabled for IPv4 and/or IPv6 on the host (0=Disabled, 1=Enabled):
+	
+	  ```bash
+	  $ sudo cat /proc/sys/net/ipv4/ip_forward
+	  1
+	  $ sudo cat /proc/sys/net/ipv6/conf/default/forwarding
+	  1
+	  # If necessary, activate forwarding temporarily until the next reboot:
+	  $ sudo echo 1 > /proc/sys/net/ipv4/ip_forward
+	  
+	  $ sudo echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+	  ```
+	
+	- For a permanent setup create the following file:
+		```bash
+    $ sudo vim /etc/sysctl.d/50-enable-forwarding.conf
+    
+    # local customizations
+    #
+    # enable forwarding for dual stack
+    net.ipv4.ip_forwarding=1 net.ipv6.conf.all.forwarding=1
+    ```
+  
+- Download an Ubuntu ISO file (or any other linux):
+	```bash
+	mkdir -p ~/images/
+    cd ~/images
+	wget curl -LO https://releases.ubuntu.com/22.04/ubuntu-22.04.2-live-server-amd64.iso
+	# create the qcow2 file that will serve as the hard drive for the VM:
+	qemu-img create -f qcow2 pondcxl.qcow2 40G
+
+- Next, run this command to boot the VM (I put this in a script ./images/live-server-setup.sh):
+	```bash
+	sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
+    -machine type=pc,accel=kvm,mem-merge=off -enable-kvm \
+    -cpu host -smp cpus=8 -m 16384M \
+    -object memory-backend-ram,size=12288M,policy=bind,host-nodes=0,id=ram-node0,prealloc=on,prealloc-threads=8 \
+    -numa node,nodeid=0,cpus=0-7,memdev=ram-node0 \
+    -object memory-backend-ram,size=4096M,policy=bind,host-nodes=1,id=ram-node1,prealloc=on,prealloc-threads=8 \
+    -numa node,nodeid=1,memdev=ram-node1 \
+    -device virtio-scsi-pci,id=scsi0 \
+    -device scsi-hd,drive=hd0 \
+    -drive file=./images/pondcxl.qcow2,if=none,aio=native,cache=none,format=qcow2,id=hd0 \
+    -net user,hostfwd=tcp::8080-:22 \
+    -net nic,model=virtio \
+    -device virtio-net,netdev=network0 \
+    -netdev tap,id=network0,ifname=tap0,script=no,downscript=no \
+    -drive file=./images/ubuntu-22.04.2-live-server-amd64.iso,media=cdrom
+	```
+	
+- After guest OS is installed, boot it with by removing -drive line from above command
+
+- If the OS is installed into pondcxl.qcow2, you should be able to enter the guest OS. Inside the VM, edit /etc/default/grub, make sure the following options are set([more details](https://help.ubuntu.com/community/SerialConsoleHowto)).
+	```bash
+    GRUB_CMDLINE_LINUX="ip=dhcp console=ttyS0,115200 console=tty console=ttyS0"
+    GRUB_TERMINAL=serial
+    GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1"
+  ```
+  
+- Still in the VM, update the grub
+	```
+	sudo update-grub
+	```
+	
+- Configuring grub
+	- Edit /boot/grub/menu.lst:
+		```bash
+		sudo nano /boot/grub/menu.lst
+		```
+	- Add the following lines to the top of the file:
+		```bash
+		# Enable console output via the serial port. unit 0 is /dev/ttyS0, unit 1 is /dev/ttyS1...
+        serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+        terminal --timeout=15 serial console
+    ```
+	- When you next reboot, the output from grub will go to the normal console unless input is received from the serial port. Whichever receives input first becomes the default console. This gives you the best of both worlds.
+	- Poweroff the VM
+        ```
+        sudo shutdown -h now
+        ```
+	
+- Now you're ready to Run PondVM. If you stick to a Desktop version guest OS, please remove "-nographic" command option from the running script before running PondVM.
+
+- Login to Pond VM
+
+    - If you correctly setup the aforementioned configurations, you should be able to see **text-based** VM login in the same terminal where you issue the running scripts. Run below script to boot up PondVM (script can be found in ./images/qemu-bootup-l75.sh)
+
+        ```bash
+        sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
+        -machine type=pc,accel=kvm,mem-merge=off -enable-kvm \
+        -cpu host -smp cpus=8 -m 16384M \
+        -object memory-backend-ram,size=12288M,policy=bind,host-nodes=0,id=ram-node0,prealloc=on,prealloc-threads=8 \
+        -numa node,nodeid=0,cpus=0-7,memdev=ram-node0 \
+        -object memory-backend-ram,size=4096M,policy=bind,host-nodes=1,id=ram-node1,prealloc=on,prealloc-threads=8 \
+        -numa node,nodeid=1,memdev=ram-node1 \
+        -device virtio-scsi-pci,id=scsi0 \
+        -device scsi-hd,drive=hd0 \
+        -drive file=./images/pondcxl.qcow2,if=none,aio=native,cache=none,format=qcow2,id=hd0 \
+        -net user,hostfwd=tcp::8080-:22 \
+        -net nic,model=virtio \
+        -device virtio-net,netdev=network0 \
+        -netdev tap,id=network0,ifname=tap0,script=no,downscript=no \
+        -nographic
+        ```
+	- more conveniently, PondVM running script has mapped host port 8080 to guest VM port 22, thus, after you install and run openssh-server inside the VM, you can also ssh into the VM via below command line. (Please run it from your host server (not inside VM))
+        ```bash
+        ssh -p 8080 $user@localhost
+        ```
+	- How to setup password-less login into VM from server
+        ```bash
+        ssh-keygen -t rsa -b 4096
+        ssh-copy-id -p 8080 $user@localhost
+        ssh -p 8080 $user@localhost
+        ```
