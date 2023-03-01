@@ -149,7 +149,7 @@ the script.
 
 - Next, run this command to boot the VM (I put this in a script ./images/live-server-setup.sh):
 	```bash
-	sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
+	  sudo /opt/qemu-7/bin/qemu-system-x86_64 -name PondVM \
     -machine type=pc,accel=kvm,mem-merge=off -enable-kvm \
     -cpu host -smp cpus=8 -m 16384M \
     -object memory-backend-ram,size=12288M,policy=bind,host-nodes=0,id=ram-node0,prealloc=on,prealloc-threads=8 \
@@ -176,7 +176,7 @@ the script.
   ```
   
 - Still in the VM, update the grub
-	```
+	```bash
 	sudo update-grub
 	```
 	
@@ -188,15 +188,14 @@ the script.
 	- Add the following lines to the top of the file:
 		```bash
 		# Enable console output via the serial port. unit 0 is /dev/ttyS0, unit 1 is /dev/ttyS1...
-        serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
-        terminal --timeout=15 serial console
+    serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+    terminal --timeout=15 serial console
     ```
 	- When you next reboot, the output from grub will go to the normal console unless input is received from the serial port. Whichever receives input first becomes the default console. This gives you the best of both worlds.
 	- Poweroff the VM
-        ```
+        ```bash
         sudo shutdown -h now
         ```
-	
 - Now you're ready to Run PondVM. If you stick to a Desktop version guest OS, please remove "-nographic" command option from the running script before running PondVM.
 
 - Login to Pond VM
